@@ -80,8 +80,9 @@
     });
 
     if (isUploadPage()) {
-        window._pixora_active = false;
-        updateBadge('ready');
+        // Auto-activate langsung saat inject
+        window._pixora_active = true;
+        updateBadge('active');
     }
 
 })();
