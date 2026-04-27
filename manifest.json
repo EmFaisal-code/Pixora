@@ -21,7 +21,7 @@
    "manifest_version": 3,
    "name": "Pixora",
    "permissions": [ "scripting", "activeTab", "storage", "tabs", "downloads" ],
-   "version": "1.2.0",
+   "version": "1.2.1",
    "web_accessible_resources": [ {
       "matches": [ "<all_urls>" ],
       "resources": [ "js/engine.js" ]

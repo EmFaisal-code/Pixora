@@ -30,7 +30,7 @@ const i18n = {
     reset_btn:'Process another file',
     dl_placeholder:'Paste TikTok link...',
     dl_loading:'⏳ Fetching data...',
-    dl_video:'Video MP4', dl_audio:'Audio MP3',
+    dl_video:'Video MP4', dl_hd:'HD Video', dl_audio:'Audio MP3',
     banned_title:'ACCOUNT BANNED', banned_sub:'Your account has been disabled by admin.\nContact @em.n.ef for more info.',
     err_fill:'Fill in username and password.', err_wrong:'Wrong username or password.',
     err_banned:'🚫 Your account has been banned.', err_connect:'Login to TikTok on active tab first.',
@@ -59,7 +59,7 @@ const i18n = {
     reset_btn:'处理其他文件',
     dl_placeholder:'粘贴 TikTok 链接...',
     dl_loading:'⏳ 获取数据中...',
-    dl_video:'视频 MP4', dl_audio:'音频 MP3',
+    dl_video:'视频 MP4', dl_hd:'HD 视频', dl_audio:'音频 MP3',
     banned_title:'账户已封禁', banned_sub:'您的账户已被管理员禁用。\n请联系 @em.n.ef 获取更多信息。',
     err_fill:'请填写用户名和密码。', err_wrong:'用户名或密码错误。',
     err_banned:'🚫 您的账户已被封禁。', err_connect:'请先在活动标签页登录 TikTok。',
@@ -88,7 +88,7 @@ const i18n = {
     reset_btn:'Proses file lain',
     dl_placeholder:'Paste link TikTok...',
     dl_loading:'⏳ Mengambil data...',
-    dl_video:'Video MP4', dl_audio:'Audio MP3',
+    dl_video:'Video MP4', dl_hd:'HD Video', dl_audio:'Audio MP3',
     banned_title:'AKUN DIBANNED', banned_sub:'Akun kamu telah dinonaktifkan oleh admin.\nHubungi @em.n.ef untuk info lebih lanjut.',
     err_fill:'Isi username dan password.', err_wrong:'Username atau password salah.',
     err_banned:'🚫 Akun kamu telah dibanned.', err_connect:'Login ke TikTok di tab aktif dulu.',
@@ -118,7 +118,7 @@ const i18n = {
     reset_btn:'Обработать другой файл',
     dl_placeholder:'Вставьте ссылку TikTok...',
     dl_loading:'⏳ Получение данных...',
-    dl_video:'Видео MP4', dl_audio:'Аудио MP3',
+    dl_video:'Видео MP4', dl_hd:'HD Видео', dl_audio:'Аудио MP3',
     banned_title:'АККАУНТ ЗАБЛОКИРОВАН', banned_sub:'Ваш аккаунт отключён администратором.\nСвяжитесь с @em.n.ef.',
     err_fill:'Заполните имя пользователя и пароль.', err_wrong:'Неверное имя пользователя или пароль.',
     err_banned:'🚫 Ваш аккаунт заблокирован.', err_connect:'Сначала войдите в TikTok на активной вкладке.',
@@ -171,6 +171,7 @@ function applyLang() {
     g('dlInput').placeholder = t('dl_placeholder');
     g('dlLoading').innerText = t('dl_loading');
     g('dlVideoBtnText').innerText = t('dl_video');
+    if (g('dlHDBtnText')) g('dlHDBtnText').innerText = t('dl_hd');
     g('dlAudioBtnText').innerText = t('dl_audio');
     // Banned
     g('bannedTitle').innerText = t('banned_title');
@@ -357,6 +358,9 @@ async function fetchTikTok(url) {
             g('dlCover').src = dlData.cover || '';
             g('dlAuthor').innerText = '@' + (dlData.author?.unique_id || dlData.author?.nickname || 'unknown');
             g('dlDesc').innerText = dlData.title || '';
+            // Tampilkan/sembunyikan tombol HD berdasarkan ketersediaan
+            const hdBtn = g('dlHDBtn');
+            if (hdBtn) hdBtn.style.display = dlData.hdplay ? '' : 'none';
             g('dlResult').classList.add('visible');
         } else { alert('Video not found.'); }
     } catch(e) { alert('Failed to fetch. Try again.'); }
@@ -365,7 +369,7 @@ async function fetchTikTok(url) {
 }
 
 // ── FORCE UPDATE CHECK ──
-const CURRENT_VERSION = '1.2.0';
+const CURRENT_VERSION = '1.2.1';
 async function checkForceUpdate() {
     try {
         const rows = await sbSelect('pixora_versions', `version=eq.${CURRENT_VERSION}&select=allowed`);
@@ -623,10 +627,34 @@ document.addEventListener('DOMContentLoaded', () => {
     g('dlInput').addEventListener('keydown', (e) => { if(e.key==='Enter') g('dlGoBtn').click(); });
     g('dlVideoBtn').addEventListener('click', () => {
         if (!dlData) return;
-        chrome.runtime.sendMessage({ action:'DOWNLOAD_FILE', url: dlData.hdplay||dlData.play, filename:`tiktok_${Date.now()}.mp4` });
+        const rand = Math.random().toString(36).substring(2, 7).toUpperCase();
+        chrome.runtime.sendMessage({ action: 'DOWNLOAD_FILE', url: dlData.play, filename: `pixora_${rand}.mp4` });
+    });
+    g('dlHDBtn').addEventListener('click', async () => {
+        if (!dlData) return;
+        const btn = g('dlHDBtn');
+        const originalText = g('dlHDBtnText').innerText;
+        btn.disabled = true;
+        g('dlHDBtnText').innerText = '⏳';
+        // Ambil URL TikTok dari input
+        const tiktokUrl = g('dlInput').value.trim();
+        chrome.runtime.sendMessage({ action: 'FETCH_HD_VIDEO', tiktokUrl }, (res) => {
+            btn.disabled = false;
+            g('dlHDBtnText').innerText = originalText;
+            if (res && res.success && res.url) {
+                const rand = Math.random().toString(36).substring(2, 7).toUpperCase();
+                chrome.runtime.sendMessage({ action: 'DOWNLOAD_FILE', url: res.url, filename: `pixora_hd_${rand}.mp4` });
+            } else {
+                // Fallback ke hdplay biasa
+                const url = dlData.hdplay || dlData.play;
+                const rand = Math.random().toString(36).substring(2, 7).toUpperCase();
+                chrome.runtime.sendMessage({ action: 'DOWNLOAD_FILE', url, filename: `pixora_hd_${rand}.mp4` });
+            }
+        });
     });
     g('dlAudioBtn').addEventListener('click', () => {
         if (!dlData) return;
-        chrome.runtime.sendMessage({ action:'DOWNLOAD_FILE', url: dlData.music, filename:`tiktok_audio_${Date.now()}.mp3` });
+        const rand = Math.random().toString(36).substring(2, 7).toUpperCase();
+        chrome.runtime.sendMessage({ action: 'DOWNLOAD_FILE', url: dlData.music, filename: `pixora_${rand}.mp3` });
     });
 });
